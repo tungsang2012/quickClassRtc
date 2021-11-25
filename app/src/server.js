@@ -41,6 +41,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 require('dotenv').config();
 
+const axios = require('axios');
 const { Server } = require('socket.io');
 const http = require('http');
 const https = require('https');
@@ -49,6 +50,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const app = express();
+const url = require('url');
 
 app.use(cors()); // Enable All CORS Requests for all origins
 app.use(compression()); // Compress all HTTP responses using GZip
@@ -73,11 +75,15 @@ if (isHttps) {
     host = 'http://' + 'localhost' + ':' + port;
 }
 
+var gToken = {};
+var gJointClassApi = 'https://api.quickclass.com.my/api/Class/sync-time-user-use';
+
 const ngrok = require('ngrok');
 const yamlJS = require('yamljs');
 const swaggerUi = require('swagger-ui-express');
 const swaggerDocument = yamlJS.load(path.join(__dirname + '/../api/swagger.yaml'));
 const { v4: uuidV4 } = require('uuid');
+var CryptoJS = require("crypto-js");
 
 const apiBasePath = '/api/v1'; // api endpoint path
 const api_docs = host + apiBasePath + '/docs'; // api docs
@@ -105,11 +111,11 @@ app.use(express.json());
 // Remove trailing slashes in url handle bad requests
 app.use((err, req, res, next) => {
     if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
-        log.debug('Request Error', {
-            header: req.headers,
-            body: req.body,
-            error: err.message,
-        });
+        // log.debug('Request Error', {
+        //     header: req.headers,
+        //     body: req.body,
+        //     error: err.message,
+        // });
         return res.status(400).send({ status: 404, message: err.message }); // Bad request
     }
     if (req.path.substr(-1) === '/' && req.path.length > 1) {
@@ -146,17 +152,31 @@ app.get(['/privacy'], (req, res) => {
 });
 
 // no room name specified to join
-app.get('/join/', (req, res) => {
-    res.redirect('/');
-});
+// app.get('/join/', (req, res) => {
+//     res.redirect('/');
+// });
 
 // join to room
-app.get('/join/*', (req, res) => {
+app.get('/join', (req, res) => {
     if (Object.keys(req.query).length > 0) {
-        log.debug('redirect:' + req.url + ' to ' + url.parse(req.url).pathname);
-        res.redirect(url.parse(req.url).pathname);
-    } else {
-        res.sendFile(path.join(__dirname, '../../', 'public/view/client.html'));
+        var bytes  = CryptoJS.AES.decrypt(decodeURI(decodeURIComponent(req.query.token)), 'secret_key_@1234@');
+        gToken = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+        axios.post(gJointClassApi,{
+            classId : gToken.classId,
+            userId : gToken.userId,
+            isRoleTeacher : gToken.isRoleTeacher,
+            isJoining : true
+        }).then(resp => {
+            console.log("join into room");
+            //do not some thing
+        });
+        if(gToken.isRoleTeacher){
+            return res.sendFile(path.join(__dirname, '../../', 'public/view/teacher.html'));
+        }
+        return res.sendFile(path.join(__dirname, '../../', 'public/view/student.html'));
+    }
+    else {
+        res.redirect('/');
     }
 });
 
@@ -318,6 +338,15 @@ io.sockets.on('connect', (socket) => {
         for (let channel in socket.channels) {
             removePeerFrom(channel);
         }
+        axios.post(gJointClassApi,{
+            classId : gToken.classId,
+            userId : gToken.userId,
+            isRoleTeacher : gToken.isRoleTeacher,
+            isJoining : false,
+        }).then(resp => {
+            console.log("out room");
+            //do not some thing
+        });
         log.debug('[' + socket.id + '] disconnected');
         delete sockets[socket.id];
     });
@@ -326,7 +355,7 @@ io.sockets.on('connect', (socket) => {
      * On peer join
      */
     socket.on('join', (config) => {
-        log.debug('[' + socket.id + '] join ', config);
+        // log.debug('[' + socket.id + '] join ', config);
 
         let channel = config.channel;
         let peer_name = config.peer_name;
@@ -360,7 +389,7 @@ io.sockets.on('connect', (socket) => {
             peer_hand: peer_hand,
             peer_rec: peer_rec,
         };
-        log.debug('connected peers grp by roomId', peers);
+        // log.debug('connected peers grp by roomId', peers);
 
         addPeerTo(channel);
 
@@ -609,12 +638,12 @@ io.sockets.on('connect', (socket) => {
 
         file['peerName'] = peer_name;
 
-        log.debug('[' + socket.id + '] Peer [' + peer_name + '] send file to room_id [' + room_id + ']', {
-            peerName: file.peerName,
-            fileName: file.fileName,
-            fileSize: bytesToSize(file.fileSize),
-            fileType: file.fileType,
-        });
+        // log.debug('[' + socket.id + '] Peer [' + peer_name + '] send file to room_id [' + room_id + ']', {
+        //     peerName: file.peerName,
+        //     fileName: file.fileName,
+        //     fileSize: bytesToSize(file.fileSize),
+        //     fileType: file.fileType,
+        // });
 
         sendToRoom(room_id, socket.id, 'fileInfo', file);
     });
@@ -626,7 +655,7 @@ io.sockets.on('connect', (socket) => {
         let room_id = config.room_id;
         let peer_name = config.peer_name;
 
-        log.debug('[' + socket.id + '] Peer [' + peer_name + '] send fileAbort to room_id [' + room_id + ']');
+        // log.debug('[' + socket.id + '] Peer [' + peer_name + '] send fileAbort to room_id [' + room_id + ']');
         sendToRoom(room_id, socket.id, 'fileAbort');
     });
 
@@ -653,14 +682,14 @@ io.sockets.on('connect', (socket) => {
         };
 
         if (peer_id) {
-            log.debug(
-                '[' + socket.id + '] emit videoPlayer to [' + peer_id + '] from room_id [' + room_id + ']',
-                logme,
-            );
+            // log.debug(
+            //     '[' + socket.id + '] emit videoPlayer to [' + peer_id + '] from room_id [' + room_id + ']',
+            //     logme,
+            // );
 
             sendToPeer(peer_id, sockets, 'videoPlayer', sendConfig);
         } else {
-            log.debug('[' + socket.id + '] emit videoPlayer to [room_id: ' + room_id + ']', logme);
+            // log.debug('[' + socket.id + '] emit videoPlayer to [room_id: ' + room_id + ']', logme);
 
             sendToRoom(room_id, socket.id, 'videoPlayer', sendConfig);
         }

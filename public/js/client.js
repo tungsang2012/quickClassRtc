@@ -715,7 +715,7 @@ function whoAreYou() {
             joinToChannel();
         },
     }).then(() => {
-        welcomeUser();
+        // welcomeUser();
     });
 
     if (isMobileDevice) return;
