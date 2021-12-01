@@ -158,7 +158,7 @@ app.get(['/privacy'], (req, res) => {
 
 // join to room
 app.get('/join/*', (req, res) => {
-    let strToken = req.url.split('/')[2];
+    let strToken = req.url.split('/join/')[1];
     if (strToken) {
         var bytes  = CryptoJS.AES.decrypt(decodeURI(decodeURIComponent(strToken)), 'secret_key_@1234@');
         gToken = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
