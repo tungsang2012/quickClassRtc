@@ -157,9 +157,10 @@ app.get(['/privacy'], (req, res) => {
 // });
 
 // join to room
-app.get('/join', (req, res) => {
-    if (Object.keys(req.query).length > 0) {
-        var bytes  = CryptoJS.AES.decrypt(decodeURI(decodeURIComponent(req.query.token)), 'secret_key_@1234@');
+app.get('/join/*', (req, res) => {
+    let strToken = req.url.split('/')[2];
+    if (strToken) {
+        var bytes  = CryptoJS.AES.decrypt(decodeURI(decodeURIComponent(strToken)), 'secret_key_@1234@');
         gToken = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
         axios.post(gJointClassApi,{
             classId : gToken.classId,

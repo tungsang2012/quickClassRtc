@@ -582,14 +582,14 @@ function getSignalingServer() {
  */
 function getRoomId() {
     // skip /join/
-    // let roomId = location.pathname.substring(6);
-    // // if not specified room id, create one random
-    // if (roomId == '') {
-    //     roomId = makeId(12);
-    //     const newurl = signalingServer + '/join/' + roomId;
-    //     window.history.pushState({ url: newurl }, roomId, newurl);
-    // }
-    // return roomId;
+    let roomId = location.pathname.substring(6);
+    // if not specified room id, create one random
+    if (roomId == '') {
+        roomId = makeId(12);
+        const newurl = signalingServer + '/join/' + roomId;
+        window.history.pushState({ url: newurl }, roomId, newurl);
+    }
+    return roomId;
 }
 
 /**
