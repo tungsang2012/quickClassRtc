@@ -3965,7 +3965,7 @@ function handleRoomLocked() {
             popup: 'animate__animated animate__fadeOutUp',
         },
     }).then((result) => {
-        if (result.isConfirmed) window.location.href = '/newcall';
+        if (result.isConfirmed) window.location.href = '/';
     });
 }
 
